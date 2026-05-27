@@ -618,13 +618,13 @@ async function renderNotesView() {
   // 1. Render Header / Breadcrumbs & Action buttons
   if (!currentNotesFolder) {
     breadcrumbs.innerHTML = `<span class="breadcrumb-item breadcrumb-active">Subject Notes</span>`;
-    actions.innerHTML = isStaff ? `
+    actions.innerHTML = isAdmin ? `
       <button class="btn btn-primary" id="btn-add-notes-folder" style="display: flex; align-items: center; gap: 6px;">
         <i data-lucide="folder-plus" style="width: 18px; height: 18px;"></i> Add Subject Folder
       </button>
     ` : '';
 
-    if (isStaff) {
+    if (isAdmin) {
       document.getElementById('btn-add-notes-folder').addEventListener('click', () => {
         openFolderModal('notes');
       });
@@ -681,7 +681,7 @@ async function renderNotesView() {
             <div class="folder-item notes-folder-card" data-id="${f.id}" data-name="${f.name}">
               ${getFolderIconSvg('#4a82c3', '#1e56a0')}
               <span class="folder-name">${escapeHTML(f.name)}</span>
-              ${isStaff ? `
+              ${isAdmin ? `
                 <div class="folder-actions-overlay">
                   <button class="folder-btn btn-rename-folder" data-id="${f.id}" data-name="${f.name}" title="Rename">
                     <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
@@ -706,7 +706,7 @@ async function renderNotesView() {
         });
       });
 
-      if (isStaff) {
+      if (isAdmin) {
         document.querySelectorAll('.btn-rename-folder').forEach(btn => {
           btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -841,13 +841,13 @@ async function renderPapersView() {
   // Breadcrumbs & Actions
   if (!currentPapersFolder) {
     breadcrumbs.innerHTML = `<span class="breadcrumb-item breadcrumb-active">Papers (PYQs)</span>`;
-    actions.innerHTML = isStaff ? `
+    actions.innerHTML = isAdmin ? `
       <button class="btn btn-primary" id="btn-add-papers-folder" style="display: flex; align-items: center; gap: 6px;">
         <i data-lucide="folder-plus" style="width: 18px; height: 18px;"></i> Add Subject Folder
       </button>
     ` : '';
 
-    if (isStaff) {
+    if (isAdmin) {
       document.getElementById('btn-add-papers-folder').addEventListener('click', () => {
         openFolderModal('papers');
       });
@@ -904,7 +904,7 @@ async function renderPapersView() {
             <div class="folder-item papers-folder-card" data-id="${f.id}" data-name="${f.name}">
               ${getFolderIconSvg('#0284c7', '#0369a1')}
               <span class="folder-name">${escapeHTML(f.name)}</span>
-              ${isStaff ? `
+              ${isAdmin ? `
                 <div class="folder-actions-overlay">
                   <button class="folder-btn btn-rename-papers-folder" data-id="${f.id}" data-name="${f.name}" title="Rename">
                     <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
@@ -929,7 +929,7 @@ async function renderPapersView() {
         });
       });
 
-      if (isStaff) {
+      if (isAdmin) {
         document.querySelectorAll('.btn-rename-papers-folder').forEach(btn => {
           btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1152,7 +1152,7 @@ async function renderResourcesView() {
         <button class="btn btn-secondary" id="btn-resources-back">
           <i data-lucide="arrow-left" style="width: 18px; height: 18px;"></i> Back
         </button>
-        ${isStaff && (currentResourcesSection === 'lab_manuals' || currentResourcesSection === 'books') ? `
+        ${isAdmin && (currentResourcesSection === 'lab_manuals' || currentResourcesSection === 'books') ? `
           <button class="btn btn-primary" id="btn-resources-add-folder" style="display: flex; align-items: center; gap: 6px;">
             <i data-lucide="folder-plus" style="width: 18px; height: 18px;"></i> Add Subject Folder
           </button>
@@ -1333,7 +1333,7 @@ async function renderResourcesView() {
           <div class="empty-state">
             <i data-lucide="info" style="width: 30px; height: 30px; margin-bottom: 10px; color: var(--text-muted);"></i>
             <p>No subject folders created yet.</p>
-            ${isStaff ? '<p style="font-size: 14px; margin-top: 6px;">Click "Add Subject Folder" to start.</p>' : ''}
+            ${isAdmin ? '<p style="font-size: 14px; margin-top: 6px;">Click "Add Subject Folder" to start.</p>' : ''}
           </div>
         `;
         lucide.createIcons();
@@ -1347,7 +1347,7 @@ async function renderResourcesView() {
             <div class="folder-item resources-folder-card" data-id="${f.id}" data-name="${f.name}">
               ${isLab ? getFolderIconSvg('#f59e0b', '#d97706') : getFolderIconSvg('#38bdf8', '#0369a1')}
               <span class="folder-name">${escapeHTML(f.name)}</span>
-              ${isStaff ? `
+              ${isAdmin ? `
                 <div class="folder-actions-overlay">
                   <button class="folder-btn btn-rename-res-folder" data-id="${f.id}" data-name="${f.name}" title="Rename"><i data-lucide="edit-2" style="width:12px;height:12px;"></i></button>
                   <button class="folder-btn folder-btn-danger btn-delete-res-folder" data-id="${f.id}" title="Delete"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
@@ -1367,7 +1367,7 @@ async function renderResourcesView() {
         });
       });
 
-      if (isStaff) {
+      if (isAdmin) {
         document.querySelectorAll('.btn-rename-res-folder').forEach(btn => {
           btn.addEventListener('click', (e) => {
             e.stopPropagation();
