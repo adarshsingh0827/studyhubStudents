@@ -1,6 +1,11 @@
 // --- API SERVICE ---
-const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
-  ? 'http://localhost:5000/api'
+const isLocalhost = window.location.hostname === 'localhost' || 
+                    window.location.hostname === '127.0.0.1' || 
+                    window.location.hostname.startsWith('192.168.') || 
+                    window.location.hostname.startsWith('10.') || 
+                    window.location.hostname.startsWith('172.');
+const API_BASE = isLocalhost
+  ? `http://${window.location.hostname}:5000/api`
   : 'https://syudyhubbackend.onrender.com/api'; // CHANGE THIS TO YOUR DEPLOYED BACKEND URL ON RENDER
 
 async function request(endpoint, options = {}) {
