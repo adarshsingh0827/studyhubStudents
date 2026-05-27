@@ -179,6 +179,30 @@ const api = {
     return await request(`/announcements/${annId}`, {
       method: 'DELETE'
     });
+  },
+
+  // Help & Support API
+  async submitHelpRequest(subject, message) {
+    return await request('/help', {
+      method: 'POST',
+      body: { subject, message }
+    });
+  },
+
+  async getHelpRequests() {
+    return await request('/help');
+  },
+
+  async resolveHelpRequest(requestId) {
+    return await request(`/help/resolve/${requestId}`, {
+      method: 'POST'
+    });
+  },
+
+  async deleteHelpRequest(requestId) {
+    return await request(`/help/${requestId}`, {
+      method: 'DELETE'
+    });
   }
 };
 
@@ -343,6 +367,7 @@ function updateNavbar() {
         <a href="#/notes" class="mobile-nav-link" id="mob-nav-notes"><i data-lucide="book-open" style="width: 18px; height: 18px;"></i> Notes</a>
         <a href="#/papers" class="mobile-nav-link" id="mob-nav-papers"><i data-lucide="file-text" style="width: 18px; height: 18px;"></i> Papers</a>
         <a href="#/resources" class="mobile-nav-link" id="mob-nav-resources"><i data-lucide="compass" style="width: 18px; height: 18px;"></i> Resources</a>
+        <a href="#/support" class="mobile-nav-link" id="mob-nav-support"><i data-lucide="help-circle" style="width: 18px; height: 18px;"></i> Help & Support</a>
         ${(currentUser.role === 'educator' || currentUser.role === 'admin' || currentUser.role === 'superadmin') ? `
           <a href="#/my-uploads" class="mobile-nav-link" id="mob-nav-my-uploads"><i data-lucide="folder-heart" style="width: 18px; height: 18px;"></i> My Uploads</a>
         ` : ''}
@@ -400,6 +425,7 @@ function updateNavbar() {
         <a href="#/notes" class="mobile-nav-link" id="mob-nav-notes"><i data-lucide="book-open" style="width: 18px; height: 18px;"></i> Notes</a>
         <a href="#/papers" class="mobile-nav-link" id="mob-nav-papers"><i data-lucide="file-text" style="width: 18px; height: 18px;"></i> Papers</a>
         <a href="#/resources" class="mobile-nav-link" id="mob-nav-resources"><i data-lucide="compass" style="width: 18px; height: 18px;"></i> Resources</a>
+        <a href="#/support" class="mobile-nav-link" id="mob-nav-support"><i data-lucide="help-circle" style="width: 18px; height: 18px;"></i> Help & Support</a>
       </div>
       <div style="display: flex; gap: 8px; margin-top: auto; width: 100%;">
         <a href="#/login" class="nav-link btn btn-secondary" style="flex: 1; text-align: center; justify-content: center; padding: 10px 0;">Login</a>
@@ -516,6 +542,9 @@ async function router() {
   } else if (hash === '#/my-uploads') {
     document.getElementById('view-my-uploads').style.display = 'block';
     await renderMyUploadsView();
+  } else if (hash === '#/support') {
+    document.getElementById('view-support').style.display = 'block';
+    await renderSupportView();
   }
 
   lucide.createIcons();
@@ -1960,6 +1989,113 @@ async function renderAdminDashboardView() {
 
     updateDirectoryView();
 
+    // Fetch and render help requests
+    const helpRequestsContainer = document.getElementById('support-requests-list-container');
+    const helpRequestsCount = document.getElementById('support-requests-count');
+
+    if (helpRequestsContainer && helpRequestsCount) {
+      helpRequestsContainer.innerHTML = '<div class="empty-state">Loading support requests...</div>';
+
+      try {
+        const tickets = await api.getHelpRequests();
+        helpRequestsCount.textContent = tickets.length;
+
+        if (tickets.length === 0) {
+          helpRequestsContainer.innerHTML = '<div class="empty-state">No support requests submitted yet.</div>';
+        } else {
+          helpRequestsContainer.innerHTML = tickets.map(t => {
+            const isResolved = t.status === 'resolved';
+            const cardClass = isResolved ? 'status-resolved' : 'status-pending';
+            const badgeClass = isResolved ? 'status-badge-resolved' : 'status-badge-pending';
+            const statusText = isResolved ? 'Resolved' : 'Pending';
+            const statusIcon = isResolved ? 'check-circle' : 'clock';
+            
+            const roleBadge = t.role === 'superadmin' ? 'Super Admin' : (t.role === 'educator' ? 'Educator' : 'Student');
+            
+            return `
+              <div class="ticket-card ${cardClass}">
+                <div class="ticket-header">
+                  <div class="ticket-user-info">
+                    <h5 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 2px;">${escapeHTML(capitalizeName(t.name))}</h5>
+                    <div class="ticket-user-meta">
+                      <span class="profile-role-badge" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 2px 6px; font-size: 10px; font-weight: 600; text-transform: capitalize;">${roleBadge}</span>
+                      <span>•</span>
+                      <span style="display: flex; align-items: center; gap: 4px;"><i data-lucide="phone" style="width: 12px; height: 12px;"></i> ${escapeHTML(t.phone)}</span>
+                      <span>•</span>
+                      <span style="display: flex; align-items: center; gap: 4px;"><i data-lucide="calendar" style="width: 12px; height: 12px;"></i> ${new Date(t.createdAt).toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <span class="ticket-status-badge ${badgeClass}">
+                    <i data-lucide="${statusIcon}" style="width: 14px; height: 14px;"></i> ${statusText}
+                  </span>
+                </div>
+                <div class="ticket-subject" style="font-size: 15px; font-weight: 700; color: var(--primary-dark); margin-bottom: 8px;">Subject: ${escapeHTML(t.subject)}</div>
+                <div class="ticket-message" style="font-size: 14px; color: var(--text-main); background-color: rgba(243, 248, 255, 0.3); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(30, 86, 160, 0.05); line-height: 1.5; white-space: pre-wrap;">${escapeHTML(t.message)}</div>
+                <div class="ticket-actions" style="display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 14px;">
+                  <button class="btn btn-secondary btn-sm btn-resolve-ticket" data-id="${t.id}" style="padding: 6px 12px; display: flex; align-items: center; gap: 4px;">
+                    ${isResolved ? `
+                      <i data-lucide="clock" style="width: 14px; height: 14px;"></i> Mark Pending
+                    ` : `
+                      <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i> Mark Resolved
+                    `}
+                  </button>
+                  <button class="btn btn-danger btn-sm btn-delete-ticket" data-id="${t.id}" style="padding: 6px 12px; display: flex; align-items: center; gap: 4px;">
+                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Delete Request
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          // Bind resolve handler
+          helpRequestsContainer.querySelectorAll('.btn-resolve-ticket').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              const id = btn.getAttribute('data-id');
+              const originalHTML = btn.innerHTML;
+              btn.disabled = true;
+              btn.innerHTML = '<i data-lucide="loader-2" class="spin-animation" style="width: 14px; height: 14px;"></i> Updating...';
+              lucide.createIcons();
+              try {
+                await api.resolveHelpRequest(id);
+                await renderAdminDashboardView();
+              } catch (err) {
+                alert(err.message || 'Failed to update request');
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+                lucide.createIcons();
+              }
+            });
+          });
+
+          // Bind delete handler
+          helpRequestsContainer.querySelectorAll('.btn-delete-ticket').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              const id = btn.getAttribute('data-id');
+              if (!confirm('Are you sure you want to permanently delete this help request?')) return;
+              const originalHTML = btn.innerHTML;
+              btn.disabled = true;
+              btn.innerHTML = '<i data-lucide="loader-2" class="spin-animation" style="width: 14px; height: 14px;"></i> Deleting...';
+              lucide.createIcons();
+              try {
+                await api.deleteHelpRequest(id);
+                await renderAdminDashboardView();
+              } catch (err) {
+                alert(err.message || 'Failed to delete request');
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+                lucide.createIcons();
+              }
+            });
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching help requests:', err);
+        helpRequestsContainer.innerHTML = `<div class="empty-state" style="color: var(--danger);">Failed to load support requests: ${escapeHTML(err.message)}</div>`;
+      }
+    }
+
+    lucide.createIcons();
+
   } catch (err) {
     errorAlert.textContent = err.message || 'Failed to load control panel directory';
     errorAlert.style.display = 'block';
@@ -2179,6 +2315,35 @@ function openEditDocumentModal(docId, title, subject, year) {
   
   document.getElementById('edit-doc-error-alert').style.display = 'none';
   document.getElementById('modal-edit-document').style.display = 'flex';
+}
+
+// HELP & SUPPORT VIEW
+async function renderSupportView() {
+  const errorAlert = document.getElementById('support-error-alert');
+  const successAlert = document.getElementById('support-success-alert');
+
+  errorAlert.style.display = 'none';
+  successAlert.style.display = 'none';
+
+  if (!currentUser) {
+    navigate('#/login');
+    return;
+  }
+
+  // Populate user info fields
+  document.getElementById('support-user-name').value = capitalizeName(currentUser.name);
+  document.getElementById('support-user-phone').value = currentUser.phone;
+  
+  let displayRole = currentUser.role;
+  if (currentUser.role === 'educator') displayRole = 'Educator (Teacher)';
+  else if (currentUser.role === 'superadmin') displayRole = 'Super Admin';
+  document.getElementById('support-user-role').value = displayRole;
+
+  // Clear inputs
+  document.getElementById('support-subject').value = '';
+  document.getElementById('support-message').value = '';
+
+  lucide.createIcons();
 }
 
 // --- FORM AND DOM INTERACTIVE HANDLERS ---
@@ -2584,6 +2749,53 @@ function initEventHandlers() {
   const myUploadsSearch = document.getElementById('my-uploads-search');
   if (myUploadsSearch) {
     myUploadsSearch.addEventListener('input', renderFilteredMyUploads);
+  }
+
+  // 8. HELP & SUPPORT SUBMISSION
+  const supportForm = document.getElementById('form-support');
+  if (supportForm) {
+    supportForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const subject = document.getElementById('support-subject').value.trim();
+      const message = document.getElementById('support-message').value.trim();
+      const errorAlert = document.getElementById('support-error-alert');
+      const successAlert = document.getElementById('support-success-alert');
+      const submitBtn = supportForm.querySelector('button[type="submit"]');
+      const btnContent = document.getElementById('support-btn-content');
+
+      errorAlert.style.display = 'none';
+      successAlert.style.display = 'none';
+
+      if (!subject || !message) {
+        errorAlert.textContent = 'Subject and message are required';
+        errorAlert.style.display = 'block';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      const originalHTML = btnContent.innerHTML;
+      btnContent.innerHTML = '<i data-lucide="loader-2" class="spin-animation" style="width: 18px; height: 18px;"></i> Submitting...';
+      lucide.createIcons();
+
+      try {
+        await api.submitHelpRequest(subject, message);
+        successAlert.textContent = 'Your help and support request has been submitted successfully!';
+        successAlert.style.display = 'block';
+        document.getElementById('support-subject').value = '';
+        document.getElementById('support-message').value = '';
+        
+        // Scroll support container to top to show success alert
+        const supportCard = document.querySelector('.support-card');
+        if (supportCard) supportCard.scrollTop = 0;
+      } catch (err) {
+        errorAlert.textContent = err.message || 'Failed to submit help request';
+        errorAlert.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        btnContent.innerHTML = originalHTML;
+        lucide.createIcons();
+      }
+    });
   }
 }
 
