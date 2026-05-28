@@ -549,13 +549,34 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label">Document Source</label>
+          <div class="calculator-tabs" style="margin-bottom: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button type="button" class="calc-tab active" id="tab-upload-file" style="padding: 8px; font-size: 13px;">Upload PDF File</button>
+            <button type="button" class="calc-tab" id="tab-upload-link" style="padding: 8px; font-size: 13px;">Paste Document Link</button>
+          </div>
+        </div>
+
+        <!-- File Upload Section -->
+        <div class="form-group" id="group-upload-file">
           <label class="form-label">Select PDF Document</label>
           <div id="upload-drag-box" class="file-upload-box">
             <i data-lucide="upload-cloud" class="file-upload-icon" style="width: 30px; height: 30px;"></i>
             <p style="font-size: 14px; font-weight: 600;" id="upload-file-label">Click to browse files</p>
-            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Only PDF documents are allowed</p>
-            <input type="file" id="upload-file-input" accept="application/pdf" style="display: none;" required />
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Only PDF documents are allowed (Maximum 10 MB)</p>
+            <input type="file" id="upload-file-input" accept="application/pdf" style="display: none;" />
           </div>
+        </div>
+
+        <!-- Link Paste Section -->
+        <div class="form-group" id="group-upload-link" style="display: none;">
+          <label class="form-label" for="upload-link-input">Document Link (e.g. Google Drive, OneDrive)</label>
+          <div style="position: relative;">
+            <i data-lucide="link" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); width: 18px; height: 18px;"></i>
+            <input id="upload-link-input" type="url" class="form-input" style="padding-left: 44px;" placeholder="https://drive.google.com/..." />
+          </div>
+          <p style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">
+            Make sure the link sharing settings are set to "Anyone with the link can view".
+          </p>
         </div>
 
         <div class="form-actions">
@@ -599,6 +620,54 @@
           <button type="submit" class="btn btn-primary" id="btn-edit-document-submit">Save Changes</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- 4. Send Message Modal (Admin Only) -->
+  <div id="modal-send-message" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Send Request / Message</h3>
+        <button id="modal-send-message-close" class="modal-close">&times;</button>
+      </div>
+      <div id="send-message-error-alert" class="alert alert-danger" style="display: none;"></div>
+      <form id="form-send-message">
+        <input type="hidden" id="send-message-user-id" value="">
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 600;">Recipient</label>
+          <input type="text" id="send-message-recipient-name" class="form-input" disabled />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="send-message-body" style="font-weight: 600;">Message Body</label>
+          <textarea id="send-message-body" class="form-input" style="min-height: 120px; resize: vertical;" placeholder="e.g. Please upload the Engineering Physics Lab Manual Unit 2 PDF." required></textarea>
+          <p style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">
+            The message will be automatically formatted and sent anonymously as <strong>ADMIN</strong>.
+          </p>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="modal-send-message-cancel" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-send-message-submit">Send Message</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. View Notification Modal (Recipient View) -->
+  <div id="modal-view-notification" class="modal-overlay" style="display: none; z-index: 1100;">
+    <div class="modal-content" style="max-width: 500px; border-left: 5px solid var(--primary); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+      <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px; color: var(--primary-dark);">
+          <i data-lucide="bell" style="width: 20px; height: 20px; color: var(--primary);"></i>
+          New Notification
+        </h3>
+        <button id="modal-view-notification-close" class="modal-close">&times;</button>
+      </div>
+      <div style="padding: 20px 24px;">
+        <pre id="notification-message-content" style="font-family: 'Outfit', sans-serif; font-size: 15px; line-height: 1.6; color: var(--text-main); white-space: pre-wrap; background-color: rgba(30, 86, 160, 0.03); padding: 16px; border-radius: var(--radius-sm); border: 1px dashed rgba(30, 86, 160, 0.15); margin: 0;"></pre>
+      </div>
+      <div class="form-actions" style="border-top: none; padding-top: 0; padding-bottom: 24px;">
+        <button type="button" id="btn-notification-acknowledge" class="btn btn-primary" style="width: 100%;">Acknowledge & Close</button>
+      </div>
     </div>
   </div>
 
