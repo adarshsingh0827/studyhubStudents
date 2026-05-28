@@ -69,6 +69,9 @@ const api = {
   logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    if (typeof stopNotificationPolling === 'function') {
+      stopNotificationPolling();
+    }
   },
 
   getCurrentUser() {
@@ -208,11 +211,30 @@ const api = {
     return await request(`/help/${requestId}`, {
       method: 'DELETE'
     });
+  },
+
+  // Notifications API
+  async sendNotification(recipientId, message) {
+    return await request('/notifications', {
+      method: 'POST',
+      body: { recipientId, message }
+    });
+  },
+
+  async getUnreadNotifications() {
+    return await request('/notifications/unread');
+  },
+
+  async markNotificationRead(id) {
+    return await request(`/notifications/read/${id}`, {
+      method: 'POST'
+    });
   }
 };
 
 // --- GLOBAL APPLICATION STATE ---
 let currentUser = null;
+let uploadSourceMode = 'file'; // 'file' | 'link'
 let currentNotesFolder = null;
 let currentPapersFolder = null;
 let currentResourcesFolder = null;
@@ -1935,6 +1957,11 @@ async function renderAdminDashboardView() {
               </div>
             </div>
             <div style="display: flex; align-items: center;">
+              ${u.id !== currentUser.id ? `
+                <button class="btn btn-secondary btn-sm btn-message-user" data-id="${u.id}" data-name="${escapeHTML(capitalizeName(u.name))}" style="margin-right: 8px; font-size: 11px; padding: 4px 10px; display: flex; align-items: center; gap: 3px; background-color: var(--primary-accent); color: var(--primary-dark); border-color: var(--primary-accent);" title="Send Notification Message">
+                  <i data-lucide="bell" style="width: 12px; height: 12px;"></i> Message
+                </button>
+              ` : ''}
               ${canPromote ? `
                 <button class="btn btn-secondary btn-sm btn-promote-admin" data-id="${u.id}" style="margin-right: 8px; font-size: 11px; padding: 4px 10px; display: flex; align-items: center; gap: 3px; background-color: #e0f2fe; color: #0369a1; border-color: #bae6fd;" title="Promote to Super Admin">
                   <i data-lucide="award" style="width: 12px; height: 12px;"></i> Promote
@@ -1985,6 +2012,27 @@ async function renderAdminDashboardView() {
             btn.disabled = false;
             btn.innerHTML = originalHTML;
             lucide.createIcons();
+          }
+        });
+      });
+
+      document.querySelectorAll('.btn-message-user').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const userId = btn.getAttribute('data-id');
+          const userName = btn.getAttribute('data-name');
+          
+          const modal = document.getElementById('modal-send-message');
+          const userIdInput = document.getElementById('send-message-user-id');
+          const nameInput = document.getElementById('send-message-recipient-name');
+          const bodyTextarea = document.getElementById('send-message-body');
+          const errAlert = document.getElementById('send-message-error-alert');
+          
+          if (modal && userIdInput && nameInput && bodyTextarea) {
+            errAlert.style.display = 'none';
+            bodyTextarea.value = '';
+            userIdInput.value = userId;
+            nameInput.value = userName;
+            modal.style.display = 'flex';
           }
         });
       });
@@ -2112,6 +2160,9 @@ async function renderAdminDashboardView() {
 function closeAllModals() {
   document.getElementById('modal-folder').style.display = 'none';
   document.getElementById('modal-upload').style.display = 'none';
+  if (document.getElementById('modal-edit-document')) document.getElementById('modal-edit-document').style.display = 'none';
+  if (document.getElementById('modal-send-message')) document.getElementById('modal-send-message').style.display = 'none';
+  if (document.getElementById('modal-view-notification')) document.getElementById('modal-view-notification').style.display = 'none';
 }
 
 function openFolderModal(sectionType, folderId = '', folderName = '') {
@@ -2174,6 +2225,21 @@ function openUploadModal(docType, folderId = null, folderName = '') {
       selectEl.innerHTML += `<option value="${escapeHTML(n.name)}">${escapeHTML(n.name)}</option>`;
     });
   }
+
+  // Reset upload source mode and UI tabs
+  uploadSourceMode = 'file';
+  const tabFileEl = document.getElementById('tab-upload-file');
+  const tabLinkEl = document.getElementById('tab-upload-link');
+  if (tabFileEl) tabFileEl.classList.add('active');
+  if (tabLinkEl) tabLinkEl.classList.remove('active');
+  
+  const groupFileEl = document.getElementById('group-upload-file');
+  const groupLinkEl = document.getElementById('group-upload-link');
+  if (groupFileEl) groupFileEl.style.display = 'block';
+  if (groupLinkEl) groupLinkEl.style.display = 'none';
+  
+  const linkInputEl = document.getElementById('upload-link-input');
+  if (linkInputEl) linkInputEl.value = '';
 
   // Clear file inputs
   document.getElementById('upload-doc-title').value = '';
@@ -2445,6 +2511,7 @@ function initEventHandlers() {
       const res = await api.login(phone, password);
       currentUser = res.user;
       updateNavbar();
+      startNotificationPolling();
       navigate('#/');
     } catch (err) {
       errorAlert.textContent = err.message || 'Failed to login';
@@ -2541,6 +2608,7 @@ function initEventHandlers() {
       } else {
         currentUser = res.user;
         updateNavbar();
+        startNotificationPolling();
         navigate('#/');
       }
     } catch (err) {
@@ -2618,26 +2686,47 @@ function initEventHandlers() {
     }
   });
 
+  // Source Mode tab switcher events
+  const tabUploadFile = document.getElementById('tab-upload-file');
+  const tabUploadLink = document.getElementById('tab-upload-link');
+  const groupUploadFile = document.getElementById('group-upload-file');
+  const groupUploadLink = document.getElementById('group-upload-link');
+  const uploadLinkInput = document.getElementById('upload-link-input');
+  const uploadErrorAlert = document.getElementById('upload-error-alert');
+
+  if (tabUploadFile && tabUploadLink) {
+    tabUploadFile.addEventListener('click', () => {
+      uploadSourceMode = 'file';
+      tabUploadFile.classList.add('active');
+      tabUploadLink.classList.remove('active');
+      if (groupUploadFile) groupUploadFile.style.display = 'block';
+      if (groupUploadLink) groupUploadLink.style.display = 'none';
+      if (uploadErrorAlert) uploadErrorAlert.style.display = 'none';
+    });
+
+    tabUploadLink.addEventListener('click', () => {
+      uploadSourceMode = 'link';
+      tabUploadFile.classList.remove('active');
+      tabUploadLink.classList.add('active');
+      if (groupUploadFile) groupUploadFile.style.display = 'none';
+      if (groupUploadLink) groupUploadLink.style.display = 'block';
+      if (uploadErrorAlert) uploadErrorAlert.style.display = 'none';
+    });
+  }
+
   uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const errorAlert = document.getElementById('upload-error-alert');
     const docType = document.getElementById('upload-section-type').value;
     const folderId = document.getElementById('upload-folder-id').value;
     const title = document.getElementById('upload-doc-title').value.trim();
-    const file = fileInput.files[0];
     const year = document.getElementById('upload-doc-year').value;
     const uploadBtnSubmit = document.getElementById('btn-upload-submit');
 
     errorAlert.style.display = 'none';
 
-    if (!title || !file) {
-      errorAlert.textContent = 'Please fill in all fields and select a file';
-      errorAlert.style.display = 'block';
-      return;
-    }
-
-    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      errorAlert.textContent = 'Only PDF documents are allowed';
+    if (!title) {
+      errorAlert.textContent = 'Please enter a document title';
       errorAlert.style.display = 'block';
       return;
     }
@@ -2649,21 +2738,80 @@ function initEventHandlers() {
     }
 
     uploadBtnSubmit.disabled = true;
-    uploadBtnSubmit.textContent = 'Uploading document...';
+    uploadBtnSubmit.textContent = 'Processing...';
 
     try {
-      const formData = new FormData();
-      formData.append('pdf', file);
-      formData.append('title', title);
-      formData.append('type', docType);
-      formData.append('folderId', folderId || '');
-      formData.append('subject', subject || '');
-      formData.append('year', year || '');
+      if (uploadSourceMode === 'file') {
+        const file = fileInput.files[0];
+        if (!file) {
+          errorAlert.textContent = 'Please select a PDF file to upload';
+          errorAlert.style.display = 'block';
+          uploadBtnSubmit.disabled = false;
+          uploadBtnSubmit.textContent = 'Upload';
+          return;
+        }
 
-      await request('/documents/upload', {
-        method: 'POST',
-        body: formData
-      });
+        if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+          errorAlert.textContent = 'Only PDF documents are allowed';
+          errorAlert.style.display = 'block';
+          uploadBtnSubmit.disabled = false;
+          uploadBtnSubmit.textContent = 'Upload';
+          return;
+        }
+
+        // Check file size (10 MB = 10485760 bytes)
+        const MAX_FILE_SIZE = 10485760;
+        if (file.size > MAX_FILE_SIZE) {
+          errorAlert.textContent = `File size too large. Got ${file.size}. Maximum is ${MAX_FILE_SIZE}.`;
+          errorAlert.style.display = 'block';
+          uploadBtnSubmit.disabled = false;
+          uploadBtnSubmit.textContent = 'Upload';
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('pdf', file);
+        formData.append('title', title);
+        formData.append('type', docType);
+        formData.append('folderId', folderId || '');
+        formData.append('subject', subject || '');
+        formData.append('year', year || '');
+
+        await request('/documents/upload', {
+          method: 'POST',
+          body: formData
+        });
+      } else {
+        const fileUrl = uploadLinkInput.value.trim();
+        if (!fileUrl) {
+          errorAlert.textContent = 'Please enter a valid document URL';
+          errorAlert.style.display = 'block';
+          uploadBtnSubmit.disabled = false;
+          uploadBtnSubmit.textContent = 'Upload';
+          return;
+        }
+
+        if (!fileUrl.startsWith('http://') && !fileUrl.startsWith('https://')) {
+          errorAlert.textContent = 'URL must start with http:// or https://';
+          errorAlert.style.display = 'block';
+          uploadBtnSubmit.disabled = false;
+          uploadBtnSubmit.textContent = 'Upload';
+          return;
+        }
+
+        await request('/documents/upload', {
+          method: 'POST',
+          body: {
+            title,
+            type: docType,
+            folderId: folderId && folderId !== 'null' ? folderId : null,
+            subject: subject || null,
+            year: year || null,
+            fileUrl,
+            fileName: title.toLowerCase().replace(/[^a-z0-9]/g, '_') + '.pdf'
+          }
+        });
+      }
 
       closeAllModals();
       
@@ -2676,7 +2824,7 @@ function initEventHandlers() {
         await renderResourcesView();
       }
     } catch (err) {
-      errorAlert.textContent = err.message || 'Failed to upload note PDF';
+      errorAlert.textContent = err.message || 'Failed to process document';
       errorAlert.style.display = 'block';
     } finally {
       uploadBtnSubmit.disabled = false;
@@ -2746,6 +2894,55 @@ function initEventHandlers() {
       } finally {
         saveBtnSubmit.disabled = false;
         saveBtnSubmit.textContent = 'Save Changes';
+      }
+    });
+  }
+
+  // SEND MESSAGE MODAL (Admin Only)
+  const sendMessageForm = document.getElementById('form-send-message');
+  const closeSendMessageModal = () => {
+    document.getElementById('modal-send-message').style.display = 'none';
+  };
+
+  const btnCloseSendMessage = document.getElementById('modal-send-message-close');
+  if (btnCloseSendMessage) {
+    btnCloseSendMessage.addEventListener('click', closeSendMessageModal);
+  }
+  const btnCancelSendMessage = document.getElementById('modal-send-message-cancel');
+  if (btnCancelSendMessage) {
+    btnCancelSendMessage.addEventListener('click', closeSendMessageModal);
+  }
+
+  if (sendMessageForm) {
+    sendMessageForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorAlert = document.getElementById('send-message-error-alert');
+      const userId = document.getElementById('send-message-user-id').value;
+      const message = document.getElementById('send-message-body').value.trim();
+      const submitBtn = document.getElementById('btn-send-message-submit');
+
+      errorAlert.style.display = 'none';
+
+      if (!message) {
+        errorAlert.textContent = 'Message body is required';
+        errorAlert.style.display = 'block';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = 'Sending...';
+
+      try {
+        await api.sendNotification(userId, message);
+        closeSendMessageModal();
+        alert('Message sent successfully!');
+      } catch (err) {
+        errorAlert.textContent = err.message || 'Failed to send message';
+        errorAlert.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
       }
     });
   }
@@ -2825,6 +3022,112 @@ function capitalizeName(name) {
     .join(' ');
 }
 
+// --- NOTIFICATION POLLING SYSTEM ---
+let notificationPollInterval = null;
+let isNotificationModalActive = false;
+
+function playNotificationSound() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioCtx.currentTime;
+    
+    // Play double chime: E5 (659Hz) then A5 (880Hz)
+    const osc1 = audioCtx.createOscillator();
+    const gain1 = audioCtx.createGain();
+    osc1.connect(gain1);
+    gain1.connect(audioCtx.destination);
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0, now);
+    gain1.gain.linearRampToValueAtTime(0.3, now + 0.05);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+    
+    const osc2 = audioCtx.createOscillator();
+    const gain2 = audioCtx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(audioCtx.destination);
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880.00, now + 0.12);
+    gain2.gain.setValueAtTime(0, now + 0.12);
+    gain2.gain.linearRampToValueAtTime(0.3, now + 0.17);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.5);
+  } catch (err) {
+    console.error("Failed to play notification sound:", err);
+  }
+}
+
+async function checkNotifications() {
+  // If not logged in, or already displaying a notification modal, do nothing
+  if (!localStorage.getItem('token') || isNotificationModalActive) return;
+
+  try {
+    const unread = await api.getUnreadNotifications();
+    if (unread && unread.length > 0) {
+      // Pick the first unread notification to show
+      const notif = unread[0];
+      showNotificationModal(notif);
+    }
+  } catch (err) {
+    console.error('Error polling notifications:', err);
+  }
+}
+
+function showNotificationModal(notif) {
+  isNotificationModalActive = true;
+  
+  // Play the chime
+  playNotificationSound();
+  
+  const modal = document.getElementById('modal-view-notification');
+  const contentEl = document.getElementById('notification-message-content');
+  
+  if (modal && contentEl) {
+    contentEl.textContent = notif.message;
+    modal.style.display = 'flex';
+    lucide.createIcons(); // trigger icon rendering inside modal
+    
+    // Bind dismiss handlers
+    const closeBtn = document.getElementById('modal-view-notification-close');
+    const ackBtn = document.getElementById('btn-notification-acknowledge');
+    
+    const handleClose = async () => {
+      modal.style.display = 'none';
+      isNotificationModalActive = false;
+      try {
+        await api.markNotificationRead(notif.id);
+        // check again for any more queued unread notifications
+        setTimeout(checkNotifications, 1000);
+      } catch (err) {
+        console.error('Error marking notification as read:', err);
+      }
+    };
+    
+    closeBtn.onclick = handleClose;
+    ackBtn.onclick = handleClose;
+  }
+}
+
+function startNotificationPolling() {
+  if (notificationPollInterval) clearInterval(notificationPollInterval);
+  
+  // Check immediately
+  checkNotifications();
+  
+  // Poll every 8 seconds
+  notificationPollInterval = setInterval(checkNotifications, 8000);
+}
+
+function stopNotificationPolling() {
+  if (notificationPollInterval) {
+    clearInterval(notificationPollInterval);
+    notificationPollInterval = null;
+  }
+}
+
 // --- INITIALIZE APPLICATION ---
 async function initApp() {
   // Restore view states from localStorage
@@ -2853,6 +3156,7 @@ async function initApp() {
     try {
       currentUser = await api.getMe();
       localStorage.setItem('user', JSON.stringify(currentUser));
+      startNotificationPolling();
     } catch (err) {
       console.error('Session validation failed:', err.message);
       api.logout();
