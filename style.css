@@ -96,16 +96,18 @@ body {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .nav-link {
   text-decoration: none;
   color: var(--text-muted);
-  padding: 10px 20px;
+  padding: 8px 14px;
   font-weight: 500;
   border-radius: 20px;
-  font-size: 15px;
+  font-size: 14px;
+  white-space: nowrap;
   transition: var(--transition);
 }
 
@@ -824,7 +826,7 @@ body {
   align-items: center;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1150px) {
   .papers-filter-bar {
     flex-direction: column;
     align-items: stretch;
@@ -1108,7 +1110,7 @@ body {
 }
 
 /* --- Mobile Responsiveness Adjustments --- */
-@media (max-width: 768px) {
+@media (max-width: 1150px) {
   .navbar {
     position: fixed;
     height: 80px;
@@ -1546,6 +1548,57 @@ body {
   .form-group-grid {
     grid-template-columns: 1fr !important;
     gap: 16px !important;
+  }
+}
+
+/* Announcements scrolling block */
+#announcements-list-container {
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Heart Likes button style */
+.like-heart-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid var(--border-color) !important;
+  padding: 6px 10px !important;
+  border-radius: 20px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  color: var(--text-muted) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: all 0.2s ease !important;
+  z-index: 10;
+}
+
+.like-heart-btn:hover {
+  transform: scale(1.08) !important;
+  color: var(--danger) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  background-color: #fff5f5 !important;
+}
+
+.like-heart-btn.liked {
+  color: var(--danger) !important;
+  background-color: #fff5f5 !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Adjust document card layout on desktop when uploaded by a teacher to avoid overlap with the heart button */
+@media (min-width: 769px) {
+  .doc-card.uploaded-by-teacher {
+    padding-right: 80px !important;
   }
 }
 
