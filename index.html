@@ -40,6 +40,9 @@
           <a href="#/my-uploads" class="nav-link" id="nav-my-uploads" style="display: none; align-items: center; gap: 4px;">
             <i data-lucide="folder-heart" style="width: 16px; height: 16px;"></i> My Uploads
           </a>
+          <a href="#/teacher-dashboard" class="nav-link" id="nav-teacher-dashboard" style="display: none; align-items: center; gap: 4px;">
+            <i data-lucide="presentation" style="width: 16px; height: 16px;"></i> Teacher Dashboard
+          </a>
           <a href="#/admin" class="nav-link" id="nav-admin" style="display: none; align-items: center; gap: 4px;">
             <i data-lucide="shield-alert" style="width: 16px; height: 16px;"></i> Admin
           </a>
@@ -101,27 +104,16 @@
               </div>
             </div>
 
-            <!-- Why card -->
-            <div class="why-card">
-              <h3>Why Study Hub?</h3>
-              <ul class="why-list">
-                <li class="why-item">
-                  <span class="why-icon"><i data-lucide="check-square" style="width: 18px; height: 18px; color: var(--success);"></i></span>
-                  <span>First-year friendly</span>
-                </li>
-                <li class="why-item">
-                  <span class="why-icon"><i data-lucide="check-square" style="width: 18px; height: 18px; color: var(--success);"></i></span>
-                  <span>Subject-wise notes & PYQs</span>
-                </li>
-                <li class="why-item">
-                  <span class="why-icon"><i data-lucide="check-square" style="width: 18px; height: 18px; color: var(--success);"></i></span>
-                  <span>Fast access via Google Drive PDFs</span>
-                </li>
-                <li class="why-item">
-                  <span class="why-icon"><i data-lucide="check-square" style="width: 18px; height: 18px; color: var(--success);"></i></span>
-                  <span>Built by seniors for juniors</span>
-                </li>
-              </ul>
+            <!-- Teacher Leaderboard Card -->
+            <div class="why-card" id="teacher-ranking-card">
+              <h3 style="display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="award" style="color: var(--warning); width: 22px; height: 22px;"></i>
+                Teacher Leaderboard
+              </h3>
+              <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Ranked by uploads and likes points</p>
+              <div id="teacher-ranking-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 230px; overflow-y: auto; padding-right: 8px;">
+                <!-- Populated dynamically via JS -->
+              </div>
             </div>
           </section>
 
@@ -157,6 +149,31 @@
 
             <div id="announcements-list-container">
               <!-- Rendered via JS -->
+            </div>
+          </section>
+
+          <!-- Relocated Why Card Section -->
+          <section style="margin-top: 50px; border-top: 1px solid var(--border-color); padding-top: 30px;">
+            <div class="card why-card" style="max-width: 650px; margin: 0 auto; padding: 30px;">
+              <h3 style="text-align: center; margin-bottom: 20px; font-size: 20px; color: var(--primary-dark);">Why Study Hub?</h3>
+              <ul class="why-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; padding-left: 0;">
+                <li class="why-item" style="display: flex; align-items: center; gap: 10px; font-size: 14px;">
+                  <span class="why-icon"><i data-lucide="check-square" style="width: 18px; height: 18px; color: var(--success); flex-shrink: 0;"></i></span>
+                  <span>First-year friendly</span>
+                </li>
+                <li class="why-item" style="display: flex; align-items: center; gap: 10px; font-size: 14px;">
+                  <span class="why-icon"><i data-lucide="check-square" style="width: 18px; height: 18px; color: var(--success); flex-shrink: 0;"></i></span>
+                  <span>Subject-wise notes & PYQs</span>
+                </li>
+                <li class="why-item" style="display: flex; align-items: center; gap: 10px; font-size: 14px;">
+                  <span class="why-icon"><i data-lucide="check-square" style="width: 18px; height: 18px; color: var(--success); flex-shrink: 0;"></i></span>
+                  <span>Fast access via Google Drive PDFs</span>
+                </li>
+                <li class="why-item" style="display: flex; align-items: center; gap: 10px; font-size: 14px;">
+                  <span class="why-icon"><i data-lucide="check-square" style="width: 18px; height: 18px; color: var(--success); flex-shrink: 0;"></i></span>
+                  <span>Built by seniors for juniors</span>
+                </li>
+              </ul>
             </div>
           </section>
         </div>
@@ -428,6 +445,58 @@
 
         <div id="my-uploads-list-container" class="docs-list">
           <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- TEACHER DASHBOARD VIEW -->
+      <div id="view-teacher-dashboard" class="page-view">
+        <div class="folder-page-header">
+          <div class="folder-breadcrumbs">
+            <span class="breadcrumb-active" style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="presentation" style="color: var(--primary); width: 22px; height: 22px;"></i> 
+              Teacher Analytics & Rankings
+            </span>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+          <p style="color: var(--text-muted); font-size: 15px; margin: 0;">
+            Track your uploaded files, likes, and view the global ranking of all enrolled educators.
+          </p>
+        </div>
+
+        <!-- Analytics Stats Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 40px;">
+          <div class="card" style="padding: 24px; text-align: center; border-left: 4px solid var(--primary);">
+            <div style="color: var(--text-muted); font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Your Total Uploads</div>
+            <div id="stats-own-uploads" style="font-size: 36px; font-weight: 800; color: var(--primary-dark);">0</div>
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">(+1 point per upload)</p>
+          </div>
+          <div class="card" style="padding: 24px; text-align: center; border-left: 4px solid var(--success);">
+            <div style="color: var(--text-muted); font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Total Likes Received</div>
+            <div id="stats-own-likes" style="font-size: 36px; font-weight: 800; color: var(--success);">0</div>
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">(+1 point per like)</p>
+          </div>
+          <div class="card" style="padding: 24px; text-align: center; border-left: 4px solid var(--warning);">
+            <div style="color: var(--text-muted); font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">All Teachers' Uploads</div>
+            <div id="stats-total-teacher-uploads" style="font-size: 36px; font-weight: 800; color: var(--warning);">0</div>
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Shared files by educators</p>
+          </div>
+        </div>
+
+        <!-- Teachers Directory and Rankings -->
+        <div style="border-top: 1px solid var(--border-color); padding-top: 30px;">
+          <h3 class="section-title" style="margin-bottom: 16px; font-size: 20px;">
+            <i data-lucide="award" style="color: var(--primary); width: 22px; height: 22px;"></i>
+            Educator Directory & Rankings
+          </h3>
+          <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">
+            Full leaderboard list of educators with points (Uploads + Likes) and current website ranking.
+          </p>
+          
+          <div id="dashboard-ranking-list" style="display: flex; flex-direction: column; gap: 12px; max-width: 700px;">
+            <!-- Rendered via JS -->
+          </div>
         </div>
       </div>
 
