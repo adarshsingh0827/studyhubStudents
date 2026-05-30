@@ -847,7 +847,66 @@
     </div>
   </div>
 
+  <!-- 7. Image Editor Modal -->
+  <div id="modal-image-editor" class="modal-overlay" style="display: none; z-index: 1300;">
+    <div class="modal-content" style="max-width: 500px; padding: 24px;">
+      <div class="modal-header" style="margin-bottom: 16px;">
+        <h3 class="modal-title">Edit Scanned Page</h3>
+        <button id="modal-image-editor-close" class="modal-close">&times;</button>
+      </div>
+      
+      <!-- Live Preview Canvas -->
+      <div style="text-align: center; margin-bottom: 16px;">
+        <canvas id="editor-canvas" style="max-width: 100%; max-height: 280px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: #f1f5f9; box-shadow: var(--shadow-sm); display: block; margin: 0 auto;"></canvas>
+      </div>
+
+      <!-- Controls Grid -->
+      <div style="margin-bottom: 20px;">
+        <span class="form-label" style="font-size: 13px; margin-bottom: 6px;">Rotation & Filters</span>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+          <button type="button" id="btn-editor-rotate" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 100px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 12px;">
+            <i data-lucide="rotate-cw" style="width: 14px; height: 14px;"></i> Rotate 90°
+          </button>
+          <button type="button" id="btn-editor-filter-bw" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 100px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 12px;">
+            <i data-lucide="file-text" style="width: 14px; height: 14px;"></i> Scan Filter
+          </button>
+          <button type="button" id="btn-editor-filter-gray" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 100px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 12px;">
+            <i data-lucide="droplet" style="width: 14px; height: 14px;"></i> Grayscale
+          </button>
+          <button type="button" id="btn-editor-reset" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 100px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-color: var(--danger); color: var(--danger); padding: 6px 12px;">
+            Reset
+          </button>
+        </div>
+
+        <span class="form-label" style="font-size: 13px; margin-bottom: 6px;">Crop Margins Guide (%)</span>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; background: #f8fafc; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <div>
+            <label style="font-size: 10px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;">Crop Left: <span id="val-crop-left">0</span>%</label>
+            <input type="range" id="range-crop-left" min="0" max="40" value="0" style="width:100%; height:4px; cursor: pointer;" />
+          </div>
+          <div>
+            <label style="font-size: 10px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;">Crop Right: <span id="val-crop-right">0</span>%</label>
+            <input type="range" id="range-crop-right" min="0" max="40" value="0" style="width:100%; height:4px; cursor: pointer;" />
+          </div>
+          <div>
+            <label style="font-size: 10px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;">Crop Top: <span id="val-crop-top">0</span>%</label>
+            <input type="range" id="range-crop-top" min="0" max="40" value="0" style="width:100%; height:4px; cursor: pointer;" />
+          </div>
+          <div>
+            <label style="font-size: 10px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;">Crop Bottom: <span id="val-crop-bottom">0</span>%</label>
+            <input type="range" id="range-crop-bottom" min="0" max="40" value="0" style="width:100%; height:4px; cursor: pointer;" />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top: 16px;">
+        <button type="button" id="modal-image-editor-cancel" class="btn btn-secondary" style="padding: 8px 16px; font-size: 13px;">Cancel</button>
+        <button type="button" id="btn-editor-save" class="btn btn-primary" style="padding: 8px 16px; font-size: 13px;">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="/app.js?v=1.0.4"></script>
+  <script src="/app.js?v=1.0.5"></script>
 </body>
 </html>
