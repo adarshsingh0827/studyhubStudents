@@ -280,7 +280,9 @@ const api = {
 
 // --- GLOBAL APPLICATION STATE ---
 let currentUser = null;
-let uploadSourceMode = 'file'; // 'file' | 'link'
+let uploadSourceMode = 'file'; // 'file' | 'link' | 'scan'
+let scanImages = []; // Array of compressed scanned images { dataUrl, width, height }
+let cameraStream = null; // Holds the MediaStream object for camera capture
 let currentNotesFolder = null;
 let currentPapersFolder = null;
 let currentResourcesFolder = null;
@@ -465,7 +467,10 @@ function updateNavbar() {
           <a href="#/admin" class="mobile-nav-link" id="mob-nav-admin"><i data-lucide="shield-alert" style="width: 18px; height: 18px;"></i> Admin</a>
         ` : ''}
       </div>
-      <button id="btn-mobile-logout" class="btn btn-danger" style="margin-top: auto; width: 100%;">
+      <button class="btn btn-primary btn-download-app-trigger" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; font-weight: 600; margin-top: auto; margin-bottom: 12px;">
+        <i data-lucide="smartphone" style="width: 18px; height: 18px;"></i> Download App
+      </button>
+      <button id="btn-mobile-logout" class="btn btn-danger" style="width: 100%;">
         <i data-lucide="log-out" style="width: 18px; height: 18px;"></i> Logout
       </button>
     `;
@@ -517,7 +522,10 @@ function updateNavbar() {
         <a href="#/resources" class="mobile-nav-link" id="mob-nav-resources"><i data-lucide="compass" style="width: 18px; height: 18px;"></i> Resources</a>
         <a href="#/support" class="mobile-nav-link" id="mob-nav-support"><i data-lucide="help-circle" style="width: 18px; height: 18px;"></i> Help & Support</a>
       </div>
-      <div style="display: flex; gap: 8px; margin-top: auto; width: 100%;">
+      <button class="btn btn-primary btn-download-app-trigger" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; font-weight: 600; margin-top: auto; margin-bottom: 12px;">
+        <i data-lucide="smartphone" style="width: 18px; height: 18px;"></i> Download App
+      </button>
+      <div style="display: flex; gap: 8px; width: 100%;">
         <a href="#/login" class="nav-link btn btn-secondary" style="flex: 1; text-align: center; justify-content: center; padding: 10px 0;">Login</a>
         <a href="#/signup" class="btn btn-primary" style="flex: 1; text-align: center; justify-content: center; padding: 10px 0;">Sign Up</a>
       </div>
@@ -2725,6 +2733,16 @@ function closeAllModals() {
   if (document.getElementById('modal-edit-document')) document.getElementById('modal-edit-document').style.display = 'none';
   if (document.getElementById('modal-send-message')) document.getElementById('modal-send-message').style.display = 'none';
   if (document.getElementById('modal-view-notification')) document.getElementById('modal-view-notification').style.display = 'none';
+
+  // Stop active camera stream if any
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+  const streamWrapper = document.getElementById('scan-camera-stream-wrapper');
+  const galleryWrapper = document.getElementById('scan-gallery-and-actions');
+  if (streamWrapper) streamWrapper.style.display = 'none';
+  if (galleryWrapper) galleryWrapper.style.display = 'block';
 }
 
 function openFolderModal(sectionType, folderId = '', folderName = '') {
@@ -2741,6 +2759,121 @@ function openFolderModal(sectionType, folderId = '', folderName = '') {
 
   document.getElementById('modal-folder').style.display = 'flex';
   document.getElementById('modal-folder-name').focus();
+}
+
+// Compress image client side using Canvas to Jpeg 0.7
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 1200;
+        
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        resolve({
+          dataUrl,
+          width,
+          height
+        });
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderScanPreviewGallery() {
+  const gallery = document.getElementById('scan-preview-gallery');
+  const container = document.getElementById('scan-preview-container');
+  const btnClear = document.getElementById('btn-scan-clear');
+  
+  if (!gallery) return;
+  
+  gallery.innerHTML = '';
+  
+  if (scanImages.length === 0) {
+    if (container) container.style.display = 'none';
+    if (btnClear) btnClear.style.display = 'none';
+    return;
+  }
+  
+  if (container) container.style.display = 'block';
+  if (btnClear) btnClear.style.display = 'inline-block';
+  
+  scanImages.forEach((img, idx) => {
+    const item = document.createElement('div');
+    item.className = 'scan-thumbnail-item';
+    item.style.cssText = 'position: relative; border-radius: var(--radius-sm); border: 1px solid var(--border-color); overflow: hidden; aspect-ratio: 3/4; display: flex; flex-direction: column; background: #000; box-shadow: var(--shadow-sm);';
+    
+    item.innerHTML = `
+      <img src="${img.dataUrl}" class="scan-thumbnail-img" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.9;" />
+      <div class="scan-thumb-controls" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); display: flex; justify-content: space-between; align-items: center; padding: 4px; z-index: 2;">
+        <button type="button" class="thumb-control-btn btn-left" style="background: none; border: none; color: #fff; padding: 2px; cursor: pointer; display: flex; align-items: center; opacity: ${idx === 0 ? 0.3 : 1};" ${idx === 0 ? 'disabled' : ''}>
+          <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i>
+        </button>
+        <span class="thumb-page-num" style="color: #fff; font-size: 10px; font-weight: bold;">P. ${idx + 1}</span>
+        <button type="button" class="thumb-control-btn btn-right" style="background: none; border: none; color: #fff; padding: 2px; cursor: pointer; display: flex; align-items: center; opacity: ${idx === scanImages.length - 1 ? 0.3 : 1};" ${idx === scanImages.length - 1 ? 'disabled' : ''}>
+          <i data-lucide="arrow-right" style="width: 14px; height: 14px;"></i>
+        </button>
+      </div>
+      <button type="button" class="thumb-delete-btn" style="position: absolute; top: 4px; right: 4px; background: rgba(239, 68, 68, 0.9); border: none; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; padding: 0;">
+        <i data-lucide="x" style="width: 12px; height: 12px;"></i>
+      </button>
+    `;
+    
+    item.querySelector('.btn-left').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (idx > 0) {
+        const temp = scanImages[idx];
+        scanImages[idx] = scanImages[idx - 1];
+        scanImages[idx - 1] = temp;
+        renderScanPreviewGallery();
+      }
+    });
+    
+    item.querySelector('.btn-right').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (idx < scanImages.length - 1) {
+        const temp = scanImages[idx];
+        scanImages[idx] = scanImages[idx + 1];
+        scanImages[idx + 1] = temp;
+        renderScanPreviewGallery();
+      }
+    });
+    
+    item.querySelector('.thumb-delete-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      scanImages.splice(idx, 1);
+      renderScanPreviewGallery();
+    });
+    
+    gallery.appendChild(item);
+  });
+  
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
 }
 
 function openUploadModal(docType, folderId = null, folderName = '') {
@@ -2792,13 +2925,17 @@ function openUploadModal(docType, folderId = null, folderName = '') {
   uploadSourceMode = 'file';
   const tabFileEl = document.getElementById('tab-upload-file');
   const tabLinkEl = document.getElementById('tab-upload-link');
+  const tabScanEl = document.getElementById('tab-upload-scan');
   if (tabFileEl) tabFileEl.classList.add('active');
   if (tabLinkEl) tabLinkEl.classList.remove('active');
+  if (tabScanEl) tabScanEl.classList.remove('active');
   
   const groupFileEl = document.getElementById('group-upload-file');
   const groupLinkEl = document.getElementById('group-upload-link');
+  const groupScanEl = document.getElementById('group-upload-scan');
   if (groupFileEl) groupFileEl.style.display = 'block';
   if (groupLinkEl) groupLinkEl.style.display = 'none';
+  if (groupScanEl) groupScanEl.style.display = 'none';
   
   const linkInputEl = document.getElementById('upload-link-input');
   if (linkInputEl) linkInputEl.value = '';
@@ -2807,6 +2944,13 @@ function openUploadModal(docType, folderId = null, folderName = '') {
   document.getElementById('upload-doc-title').value = '';
   document.getElementById('upload-file-input').value = '';
   document.getElementById('upload-file-label').textContent = 'Click to browse files';
+  
+  const scanCameraInput = document.getElementById('scan-camera-input');
+  const scanGalleryInput = document.getElementById('scan-gallery-input');
+  if (scanCameraInput) scanCameraInput.value = '';
+  if (scanGalleryInput) scanGalleryInput.value = '';
+  scanImages = [];
+  renderScanPreviewGallery();
   
   document.getElementById('modal-upload').style.display = 'flex';
 }
@@ -3001,7 +3145,22 @@ function initEventHandlers() {
       document.body.style.overflow = ''; // RESTORE BACKGROUND SCROLL
     });
     mobMenu.addEventListener('click', (e) => {
-      e.stopPropagation();
+      const trigger = e.target.closest('.btn-download-app-trigger');
+      if (trigger) {
+        e.preventDefault();
+        mobMenu.classList.remove('open');
+        mobOverlay.classList.remove('open');
+        document.body.style.overflow = '';
+        
+        const modal = document.getElementById('modal-download-app');
+        const errAlert = document.getElementById('download-app-error');
+        if (modal) {
+          if (errAlert) errAlert.style.display = 'none';
+          modal.style.display = 'flex';
+        }
+      } else {
+        e.stopPropagation();
+      }
     });
   }
 
@@ -3010,6 +3169,52 @@ function initEventHandlers() {
 
   // Footer Year
   document.getElementById('footer-year').textContent = new Date().getFullYear();
+
+  // Download App Modal Listeners for Desktop Navbar
+  document.addEventListener('click', (e) => {
+    // Only capture triggers outside mobile menu (mobile is handled directly above)
+    const trigger = e.target.closest('.desktop-nav .btn-download-app-trigger');
+    if (trigger) {
+      e.preventDefault();
+      const modal = document.getElementById('modal-download-app');
+      const errAlert = document.getElementById('download-app-error');
+      if (modal) {
+        if (errAlert) errAlert.style.display = 'none';
+        modal.style.display = 'flex';
+      }
+    }
+  });
+
+  const btnDownloadAndroid = document.getElementById('btn-download-android');
+  if (btnDownloadAndroid) {
+    btnDownloadAndroid.addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.href = '/studyhub.apk';
+      link.download = 'studyhub.apk';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      const modal = document.getElementById('modal-download-app');
+      if (modal) modal.style.display = 'none';
+    });
+  }
+
+  const btnDownloadIos = document.getElementById('btn-download-ios');
+  const downloadErrAlert = document.getElementById('download-app-error');
+  if (btnDownloadIos && downloadErrAlert) {
+    btnDownloadIos.addEventListener('click', () => {
+      downloadErrAlert.textContent = 'App for iOS is Under development.';
+      downloadErrAlert.style.display = 'block';
+    });
+  }
+
+  const btnCancelDownload = document.getElementById('modal-download-app-cancel');
+  if (btnCancelDownload) {
+    btnCancelDownload.addEventListener('click', () => {
+      const modal = document.getElementById('modal-download-app');
+      if (modal) modal.style.display = 'none';
+    });
+  }
 
   // Populate dynamic upload academic years
   const uploadYearSel = document.getElementById('upload-doc-year');
@@ -3251,28 +3456,197 @@ function initEventHandlers() {
   // Source Mode tab switcher events
   const tabUploadFile = document.getElementById('tab-upload-file');
   const tabUploadLink = document.getElementById('tab-upload-link');
+  const tabUploadScan = document.getElementById('tab-upload-scan');
   const groupUploadFile = document.getElementById('group-upload-file');
   const groupUploadLink = document.getElementById('group-upload-link');
+  const groupUploadScan = document.getElementById('group-upload-scan');
   const uploadLinkInput = document.getElementById('upload-link-input');
   const uploadErrorAlert = document.getElementById('upload-error-alert');
 
-  if (tabUploadFile && tabUploadLink) {
+  if (tabUploadFile && tabUploadLink && tabUploadScan) {
     tabUploadFile.addEventListener('click', () => {
       uploadSourceMode = 'file';
       tabUploadFile.classList.add('active');
       tabUploadLink.classList.remove('active');
+      tabUploadScan.classList.remove('active');
       if (groupUploadFile) groupUploadFile.style.display = 'block';
       if (groupUploadLink) groupUploadLink.style.display = 'none';
+      if (groupUploadScan) groupUploadScan.style.display = 'none';
       if (uploadErrorAlert) uploadErrorAlert.style.display = 'none';
+      
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      const streamWrapper = document.getElementById('scan-camera-stream-wrapper');
+      const galleryWrapper = document.getElementById('scan-gallery-and-actions');
+      if (streamWrapper) streamWrapper.style.display = 'none';
+      if (galleryWrapper) galleryWrapper.style.display = 'block';
     });
 
     tabUploadLink.addEventListener('click', () => {
       uploadSourceMode = 'link';
       tabUploadFile.classList.remove('active');
       tabUploadLink.classList.add('active');
+      tabUploadScan.classList.remove('active');
       if (groupUploadFile) groupUploadFile.style.display = 'none';
       if (groupUploadLink) groupUploadLink.style.display = 'block';
+      if (groupUploadScan) groupUploadScan.style.display = 'none';
       if (uploadErrorAlert) uploadErrorAlert.style.display = 'none';
+      
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      const streamWrapper = document.getElementById('scan-camera-stream-wrapper');
+      const galleryWrapper = document.getElementById('scan-gallery-and-actions');
+      if (streamWrapper) streamWrapper.style.display = 'none';
+      if (galleryWrapper) galleryWrapper.style.display = 'block';
+    });
+
+    tabUploadScan.addEventListener('click', () => {
+      uploadSourceMode = 'scan';
+      tabUploadFile.classList.remove('active');
+      tabUploadLink.classList.remove('active');
+      tabUploadScan.classList.add('active');
+      if (groupUploadFile) groupUploadFile.style.display = 'none';
+      if (groupUploadLink) groupUploadLink.style.display = 'none';
+      if (groupUploadScan) groupUploadScan.style.display = 'block';
+      if (uploadErrorAlert) uploadErrorAlert.style.display = 'none';
+    });
+  }
+
+  // Scan file input & button events
+  const btnScanCamera = document.getElementById('btn-scan-camera');
+  const btnScanGallery = document.getElementById('btn-scan-gallery');
+  const btnScanClear = document.getElementById('btn-scan-clear');
+  const btnScanCapture = document.getElementById('btn-scan-capture');
+  const btnScanStop = document.getElementById('btn-scan-stop');
+  const scanVideo = document.getElementById('scan-video');
+  const streamWrapper = document.getElementById('scan-camera-stream-wrapper');
+  const galleryWrapper = document.getElementById('scan-gallery-and-actions');
+  const scanGalleryInput = document.getElementById('scan-gallery-input');
+
+  const handleScanFiles = async (files, triggerButton) => {
+    if (!files.length) return;
+    
+    const originalText = triggerButton.innerHTML;
+    triggerButton.disabled = true;
+    triggerButton.innerHTML = 'Compressing...';
+    
+    try {
+      for (const file of files) {
+        if (!file.type.startsWith('image/')) continue;
+        const compressed = await compressImage(file);
+        scanImages.push(compressed);
+      }
+      renderScanPreviewGallery();
+    } catch (err) {
+      console.error(err);
+      alert('Error processing one or more photos.');
+    } finally {
+      triggerButton.disabled = false;
+      triggerButton.innerHTML = originalText;
+    }
+  };
+
+  if (btnScanCamera && streamWrapper && galleryWrapper) {
+    btnScanCamera.addEventListener('click', async () => {
+      // Insecure Context Fallback or getUserMedia not supported (e.g. HTTP non-localhost IP browsing)
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.warn('getUserMedia is not supported or context is insecure. Falling back to native capture dialog.');
+        const fallbackInput = document.createElement('input');
+        fallbackInput.type = 'file';
+        fallbackInput.accept = 'image/*';
+        fallbackInput.capture = 'environment';
+        fallbackInput.addEventListener('change', async (e) => {
+          await handleScanFiles(Array.from(e.target.files), btnScanCamera);
+        });
+        fallbackInput.click();
+        return;
+      }
+
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 960 } }
+        });
+        if (scanVideo) {
+          scanVideo.srcObject = cameraStream;
+          scanVideo.play();
+        }
+        streamWrapper.style.display = 'block';
+        galleryWrapper.style.display = 'none';
+      } catch (err) {
+        console.error('Camera access error:', err);
+        // Automatic fallback on permissions failure or hardware lock
+        const fallbackInput = document.createElement('input');
+        fallbackInput.type = 'file';
+        fallbackInput.accept = 'image/*';
+        fallbackInput.capture = 'environment';
+        fallbackInput.addEventListener('change', async (e) => {
+          await handleScanFiles(Array.from(e.target.files), btnScanCamera);
+        });
+        fallbackInput.click();
+      }
+    });
+  }
+
+  if (btnScanStop && streamWrapper && galleryWrapper) {
+    btnScanStop.addEventListener('click', () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      streamWrapper.style.display = 'none';
+      galleryWrapper.style.display = 'block';
+    });
+  }
+
+  if (btnScanCapture && scanVideo) {
+    btnScanCapture.addEventListener('click', () => {
+      if (!cameraStream) return;
+      
+      const canvas = document.createElement('canvas');
+      const width = scanVideo.videoWidth || 1280;
+      const height = scanVideo.videoHeight || 960;
+      
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(scanVideo, 0, 0, width, height);
+      
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      scanImages.push({
+        dataUrl,
+        width,
+        height
+      });
+      
+      // Snap flash visual effect
+      scanVideo.style.opacity = '0.3';
+      setTimeout(() => {
+        scanVideo.style.opacity = '1';
+      }, 100);
+      
+      renderScanPreviewGallery();
+    });
+  }
+
+  if (btnScanGallery && scanGalleryInput) {
+    btnScanGallery.addEventListener('click', () => scanGalleryInput.click());
+  }
+
+  if (scanGalleryInput) {
+    scanGalleryInput.addEventListener('change', async (e) => {
+      await handleScanFiles(Array.from(e.target.files), btnScanGallery);
+      scanGalleryInput.value = '';
+    });
+  }
+
+  if (btnScanClear) {
+    btnScanClear.addEventListener('click', () => {
+      scanImages = [];
+      renderScanPreviewGallery();
     });
   }
 
@@ -3333,6 +3707,58 @@ function initEventHandlers() {
 
         const formData = new FormData();
         formData.append('pdf', file);
+        formData.append('title', title);
+        formData.append('type', docType);
+        formData.append('folderId', folderId || '');
+        formData.append('subject', subject || '');
+        formData.append('year', year || '');
+
+        await request('/documents/upload', {
+          method: 'POST',
+          body: formData
+        });
+      } else if (uploadSourceMode === 'scan') {
+        if (scanImages.length === 0) {
+          errorAlert.textContent = 'Please add/capture at least one photo';
+          errorAlert.style.display = 'block';
+          uploadBtnSubmit.disabled = false;
+          uploadBtnSubmit.textContent = 'Upload';
+          return;
+        }
+
+        uploadBtnSubmit.textContent = 'Compiling PDF...';
+
+        const { jsPDF } = window.jspdf;
+
+        const first = scanImages[0];
+        const doc = new jsPDF({
+          orientation: first.width > first.height ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [first.width, first.height]
+        });
+        doc.addImage(first.dataUrl, 'JPEG', 0, 0, first.width, first.height);
+
+        for (let i = 1; i < scanImages.length; i++) {
+          const img = scanImages[i];
+          doc.addPage([img.width, img.height], img.width > img.height ? 'landscape' : 'portrait');
+          doc.addImage(img.dataUrl, 'JPEG', 0, 0, img.width, img.height);
+        }
+
+        const pdfBlob = doc.output('blob');
+
+        const MAX_FILE_SIZE = 10485760;
+        if (pdfBlob.size > MAX_FILE_SIZE) {
+          errorAlert.textContent = `Generated PDF is too large (${(pdfBlob.size / 1024 / 1024).toFixed(2)} MB). Maximum allowed is 10 MB. Please clear and scan fewer/smaller images.`;
+          errorAlert.style.display = 'block';
+          uploadBtnSubmit.disabled = false;
+          uploadBtnSubmit.textContent = 'Upload';
+          return;
+        }
+
+        uploadBtnSubmit.textContent = 'Uploading PDF...';
+
+        const formData = new FormData();
+        formData.append('pdf', pdfBlob, title.toLowerCase().replace(/[^a-z0-9]/g, '_') + '.pdf');
         formData.append('title', title);
         formData.append('type', docType);
         formData.append('folderId', folderId || '');
