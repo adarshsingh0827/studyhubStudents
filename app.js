@@ -283,6 +283,10 @@ let currentUser = null;
 let uploadSourceMode = 'file'; // 'file' | 'link' | 'scan'
 let scanImages = []; // Array of compressed scanned images { dataUrl, width, height }
 let cameraStream = null; // Holds the MediaStream object for camera capture
+let editingIndex = null; // The index of the scanned page currently being edited
+let editorRotation = 0; // Rotate state (0, 90, 180, 270)
+let editorFilter = 'original'; // Current filter name ('original', 'bw', 'gray')
+let editorImg = new Image(); // The original image object loaded into editor memory
 let currentNotesFolder = null;
 let currentPapersFolder = null;
 let currentResourcesFolder = null;
@@ -2837,6 +2841,9 @@ function renderScanPreviewGallery() {
           <i data-lucide="arrow-right" style="width: 14px; height: 14px;"></i>
         </button>
       </div>
+      <button type="button" class="thumb-edit-btn" style="position: absolute; top: 4px; left: 4px; background: rgba(37, 99, 235, 0.9); border: none; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; padding: 0;">
+        <i data-lucide="pencil" style="width: 12px; height: 12px;"></i>
+      </button>
       <button type="button" class="thumb-delete-btn" style="position: absolute; top: 4px; right: 4px; background: rgba(239, 68, 68, 0.9); border: none; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; padding: 0;">
         <i data-lucide="x" style="width: 12px; height: 12px;"></i>
       </button>
@@ -2861,6 +2868,11 @@ function renderScanPreviewGallery() {
         renderScanPreviewGallery();
       }
     });
+
+    item.querySelector('.thumb-edit-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      loadEditor(idx);
+    });
     
     item.querySelector('.thumb-delete-btn').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2873,6 +2885,230 @@ function renderScanPreviewGallery() {
   
   if (window.lucide) {
     window.lucide.createIcons();
+  }
+}
+
+// --- SCAN IMAGE EDITOR UTILITIES ---
+
+function updateSliderLabels() {
+  document.getElementById('val-crop-left').textContent = document.getElementById('range-crop-left').value;
+  document.getElementById('val-crop-right').textContent = document.getElementById('range-crop-right').value;
+  document.getElementById('val-crop-top').textContent = document.getElementById('range-crop-top').value;
+  document.getElementById('val-crop-bottom').textContent = document.getElementById('range-crop-bottom').value;
+}
+
+function drawEditorCanvas(applyCrop = false) {
+  const canvas = document.getElementById('editor-canvas');
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  const origW = editorImg.width;
+  const origH = editorImg.height;
+  
+  // Crop parameters (fractions of original size)
+  const cL = parseFloat(document.getElementById('range-crop-left').value) / 100;
+  const cR = parseFloat(document.getElementById('range-crop-right').value) / 100;
+  const cT = parseFloat(document.getElementById('range-crop-top').value) / 100;
+  const cB = parseFloat(document.getElementById('range-crop-bottom').value) / 100;
+  
+  // Crop bounds on original image
+  const cropX = origW * cL;
+  const cropY = origH * cT;
+  const cropW = origW * (1 - cL - cR);
+  const cropH = origH * (1 - cT - cB);
+  
+  // Set dimensions based on rotation
+  const is90or270 = (editorRotation === 90 || editorRotation === 270);
+  const renderW = applyCrop ? cropW : origW;
+  const renderH = applyCrop ? cropH : origH;
+  
+  canvas.width = is90or270 ? renderH : renderW;
+  canvas.height = is90or270 ? renderW : renderH;
+  
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Translate and rotate around center
+  ctx.save();
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate((editorRotation * Math.PI) / 180);
+  
+  const drawW = applyCrop ? cropW : origW;
+  const drawH = applyCrop ? cropH : origH;
+  const drawX = applyCrop ? cropX : 0;
+  const drawY = applyCrop ? cropY : 0;
+  
+  ctx.drawImage(
+    editorImg,
+    drawX, drawY, drawW, drawH,
+    -renderW / 2, -renderH / 2, renderW, renderH
+  );
+  
+  ctx.restore();
+  
+  // Apply image filters (B&W or grayscale)
+  if (editorFilter === 'gray' || editorFilter === 'bw') {
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imgData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i+1];
+      const b = data[i+2];
+      let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+      
+      if (editorFilter === 'bw') {
+        // High-contrast document scanner filter threshold
+        gray = (gray > 120) ? 255 : 0;
+      }
+      
+      data[i] = gray;
+      data[i+1] = gray;
+      data[i+2] = gray;
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+  
+  // Draw crop guides overlay if not compiling final cropped image
+  if (!applyCrop && (cL > 0 || cR > 0 || cT > 0 || cB > 0)) {
+    ctx.save();
+    
+    // Transform coordinates back to current rotation space to draw overlay
+    if (editorRotation === 90) {
+      ctx.translate(canvas.width, 0);
+      ctx.rotate((90 * Math.PI) / 180);
+    } else if (editorRotation === 180) {
+      ctx.translate(canvas.width, canvas.height);
+      ctx.rotate((180 * Math.PI) / 180);
+    } else if (editorRotation === 270) {
+      ctx.translate(0, canvas.height);
+      ctx.rotate((270 * Math.PI) / 180);
+    }
+    
+    // Draw Guidelines
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(cropX, cropY, cropW, cropH);
+    
+    // Darken cropped margins
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
+    // Top
+    ctx.fillRect(0, 0, origW, cropY);
+    // Bottom
+    ctx.fillRect(0, cropY + cropH, origW, origH - cropY - cropH);
+    // Left
+    ctx.fillRect(0, cropY, cropX, cropH);
+    // Right
+    ctx.fillRect(cropX + cropW, cropY, origW - cropX - cropW, cropH);
+    
+    ctx.restore();
+  }
+}
+
+function loadEditor(idx) {
+  editingIndex = idx;
+  editorRotation = 0;
+  editorFilter = 'original';
+  
+  // Reset crop sliders
+  document.getElementById('range-crop-left').value = 0;
+  document.getElementById('range-crop-right').value = 0;
+  document.getElementById('range-crop-top').value = 0;
+  document.getElementById('range-crop-bottom').value = 0;
+  updateSliderLabels();
+  
+  // Show loading indicator or block UI
+  editorImg.onload = function() {
+    drawEditorCanvas();
+    const modal = document.getElementById('modal-image-editor');
+    if (modal) modal.style.display = 'flex';
+  };
+  editorImg.src = scanImages[idx].dataUrl;
+}
+
+// Initializing event listeners for the editor
+function initEditorEventHandlers() {
+  const btnRotate = document.getElementById('btn-editor-rotate');
+  const btnFilterBw = document.getElementById('btn-editor-filter-bw');
+  const btnFilterGray = document.getElementById('btn-editor-filter-gray');
+  const btnReset = document.getElementById('btn-editor-reset');
+  const btnSave = document.getElementById('btn-editor-save');
+  const btnCancel = document.getElementById('modal-image-editor-cancel');
+  const btnClose = document.getElementById('modal-image-editor-close');
+  
+  const sliders = [
+    'range-crop-left',
+    'range-crop-right',
+    'range-crop-top',
+    'range-crop-bottom'
+  ];
+
+  if (btnRotate) {
+    btnRotate.addEventListener('click', () => {
+      editorRotation = (editorRotation + 90) % 360;
+      drawEditorCanvas();
+    });
+  }
+
+  if (btnFilterBw) {
+    btnFilterBw.addEventListener('click', () => {
+      editorFilter = (editorFilter === 'bw') ? 'original' : 'bw';
+      drawEditorCanvas();
+    });
+  }
+
+  if (btnFilterGray) {
+    btnFilterGray.addEventListener('click', () => {
+      editorFilter = (editorFilter === 'gray') ? 'original' : 'gray';
+      drawEditorCanvas();
+    });
+  }
+
+  if (btnReset) {
+    btnReset.addEventListener('click', () => {
+      editorRotation = 0;
+      editorFilter = 'original';
+      sliders.forEach(id => {
+        document.getElementById(id).value = 0;
+      });
+      updateSliderLabels();
+      drawEditorCanvas();
+    });
+  }
+
+  sliders.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', () => {
+        updateSliderLabels();
+        drawEditorCanvas();
+      });
+    }
+  });
+
+  const closeEditorModal = () => {
+    const modal = document.getElementById('modal-image-editor');
+    if (modal) modal.style.display = 'none';
+  };
+
+  if (btnCancel) btnCancel.addEventListener('click', closeEditorModal);
+  if (btnClose) btnClose.addEventListener('click', closeEditorModal);
+
+  if (btnSave) {
+    btnSave.addEventListener('click', () => {
+      // Compile canvas output with crop applied
+      drawEditorCanvas(true);
+      const canvas = document.getElementById('editor-canvas');
+      if (canvas && editingIndex !== null) {
+        const finalDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        scanImages[editingIndex] = {
+          dataUrl: finalDataUrl,
+          width: canvas.width,
+          height: canvas.height
+        };
+        closeEditorModal();
+        renderScanPreviewGallery();
+      }
+    });
   }
 }
 
@@ -4230,6 +4466,7 @@ async function initApp() {
   
   updateNavbar();
   initEventHandlers();
+  initEditorEventHandlers();
   
   // Run routing trigger
   await router();
