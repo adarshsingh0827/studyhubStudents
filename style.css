@@ -1598,9 +1598,9 @@ body {
   border-color: rgba(239, 68, 68, 0.3) !important;
 }
 
-/* Adjust document card layout on desktop when uploaded by a teacher to avoid overlap with the heart button */
+/* Adjust document card layout on desktop to avoid overlap with the heart button */
 @media (min-width: 769px) {
-  .doc-card.uploaded-by-teacher {
+  .doc-card {
     padding-right: 80px !important;
   }
 }
