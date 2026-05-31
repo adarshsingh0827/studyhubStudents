@@ -51,7 +51,56 @@ async function convertToPdf(file) {
     throw new Error('PDF conversion library is not loaded. Please try again.');
   }
 
-  // 1. Convert Images
+  // 1. Convert Word Documents (.docx) using Mammoth.js
+  if (file.name.toLowerCase().endsWith('.docx')) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const arrayBuffer = e.target.result;
+        if (!window.mammoth) {
+          reject(new Error("Word document parser library (Mammoth) is not loaded."));
+          return;
+        }
+        window.mammoth.extractRawText({ arrayBuffer: arrayBuffer })
+          .then(function(result) {
+            const text = result.value || '';
+            const pdf = new jsPDF();
+            
+            const margin = 15;
+            const pageHeight = pdf.internal.pageSize.height;
+            const pageWidth = pdf.internal.pageSize.width;
+            const maxLineWidth = pageWidth - (margin * 2);
+            
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(11);
+            
+            // Split text with line wrapping
+            const lines = pdf.splitTextToSize(text, maxLineWidth);
+            let cursorY = margin;
+            
+            for (let i = 0; i < lines.length; i++) {
+              if (cursorY + 8 > pageHeight - margin) {
+                pdf.addPage();
+                cursorY = margin;
+              }
+              pdf.text(lines[i], margin, cursorY);
+              cursorY += 6;
+            }
+            
+            const pdfBlob = pdf.output('blob');
+            const pdfFile = new File([pdfBlob], file.name.replace(/\.[^/.]+$/, "") + ".pdf", { type: 'application/pdf' });
+            resolve(pdfFile);
+          })
+          .catch(function(err) {
+            reject(new Error("Failed to parse Word document: " + err.message));
+          });
+      };
+      reader.onerror = () => reject(new Error("Failed to read Word file"));
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  // 2. Convert Images
   if (file.type.startsWith('image/')) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -90,7 +139,7 @@ async function convertToPdf(file) {
     });
   }
 
-  // 2. Convert Text / Code Files
+  // 3. Convert Text / Code Files
   const textExtensions = ['.txt', '.js', '.py', '.c', '.cpp', '.h', '.java', '.json', '.css', '.html', '.md', '.xml', '.svg'];
   const hasTextExtension = textExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
   if (file.type.startsWith('text/') || hasTextExtension) {
@@ -129,7 +178,7 @@ async function convertToPdf(file) {
     });
   }
 
-  // 3. Fallback Document Wrapper (Word, Excel, PPT, Zip, etc.)
+  // 4. Fallback Document Wrapper (Excel, PPT, Zip, etc.)
   return new Promise((resolve) => {
     const pdf = new jsPDF();
     pdf.setFont("helvetica", "bold");
