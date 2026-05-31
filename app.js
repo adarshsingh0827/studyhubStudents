@@ -1007,7 +1007,7 @@ async function renderNotesView() {
                   <div class="doc-meta-details">
                     <span>Academic Year: ${escapeHTML(doc.year)}</span>
                     <span>•</span>
-                    <span>Contributed By: ${escapeHTML(doc.uploadedBy)}</span>
+                    <span>${doc.uploadedByRole === 'student' ? 'Contributed By' : 'By'}: ${escapeHTML(doc.uploadedBy)}</span>
                     <span>•</span>
                     <span>${new Date(doc.createdAt).toLocaleDateString()}</span>
                   </div>
@@ -1275,7 +1275,7 @@ async function renderPapersView() {
                       <div class="doc-meta-details">
                         <span>Academic Year: ${escapeHTML(doc.year)}</span>
                         <span>•</span>
-                        <span>Contributed By: ${escapeHTML(doc.uploadedBy)}</span>
+                        <span>${doc.uploadedByRole === 'student' ? 'Contributed By' : 'By'}: ${escapeHTML(doc.uploadedBy)}</span>
                         <span>•</span>
                         <span>${new Date(doc.createdAt).toLocaleDateString()}</span>
                       </div>
@@ -1584,7 +1584,7 @@ async function renderResourcesView() {
                   <div class="doc-meta-details">
                     <span>Year: ${escapeHTML(doc.year)}</span>
                     <span>•</span>
-                    <span>Contributed By: ${escapeHTML(doc.uploadedBy)}</span>
+                    <span>${doc.uploadedByRole === 'student' ? 'Contributed By' : 'By'}: ${escapeHTML(doc.uploadedBy)}</span>
                   </div>
                 </div>
               </div>
@@ -1747,7 +1747,7 @@ async function renderResourcesView() {
                   <div class="doc-meta-details">
                     <span>Year: ${escapeHTML(doc.year)}</span>
                     <span>•</span>
-                    <span>Contributed By: ${escapeHTML(doc.uploadedBy)}</span>
+                    <span>${doc.uploadedByRole === 'student' ? 'Contributed By' : 'By'}: ${escapeHTML(doc.uploadedBy)}</span>
                   </div>
                 </div>
               </div>
@@ -1853,7 +1853,7 @@ async function renderResourcesView() {
                     <div class="doc-meta-details">
                       <span>Year: ${escapeHTML(doc.year)}</span>
                       <span>•</span>
-                      <span>Contributed By: ${escapeHTML(doc.uploadedBy)}</span>
+                      <span>${doc.uploadedByRole === 'student' ? 'Contributed By' : 'By'}: ${escapeHTML(doc.uploadedBy)}</span>
                       <span>•</span>
                       <span>${new Date(doc.createdAt).toLocaleDateString()}</span>
                     </div>
