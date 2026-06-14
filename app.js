@@ -1,4 +1,28 @@
+// --- DYNAMIC SCRIPT LOADERS (Performance Optimization) ---
+function loadScript(url) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${url}"]`)) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = url;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = (err) => reject(err);
+    document.head.appendChild(script);
+  });
+}
 
+function ensureJsPDFLoaded() {
+  if (window.jspdf) return Promise.resolve();
+  return loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+}
+
+function ensurePuterLoaded() {
+  if (window.puter) return Promise.resolve();
+  return loadScript("https://js.puter.com/v2/");
+}
 
 // --- SONIC CHATBOT ENGINE ---
 let chatSessionHistory = [];
@@ -376,6 +400,7 @@ async function askSonicProxy(userMsg) {
 }
 
 async function askSonicPuter(userMsg) {
+  await ensurePuterLoaded();
   if (typeof puter === 'undefined') {
     throw new Error('Puter SDK not loaded');
   }
@@ -1030,6 +1055,9 @@ function updateNavbar() {
           <a href="#/reset-password" class="profile-dropdown-link" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text-main); font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: var(--radius-sm); transition: var(--transition); margin-bottom: 8px; border: 1px solid var(--border-color); background-color: var(--primary-accent);">
             <i data-lucide="key-round" style="width: 14px; height: 14px; color: var(--primary);"></i> Reset Password
           </a>
+          <a href="https://github.com/ankitgl200/studyhubStudents" target="_blank" rel="noopener noreferrer" class="profile-dropdown-link" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text-main); font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: var(--radius-sm); transition: var(--transition); margin-bottom: 8px; border: 1px solid var(--border-color); background-color: var(--primary-accent);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; color: var(--primary);"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg> Contribute
+          </a>
           <a href="#/terms" class="profile-dropdown-link" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text-main); font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: var(--radius-sm); transition: var(--transition); margin-bottom: 8px; border: 1px solid var(--border-color); background-color: var(--primary-accent);">
             <i data-lucide="file-text" style="width: 14px; height: 14px; color: var(--primary);"></i> Terms of Service
           </a>
@@ -1108,6 +1136,7 @@ function updateNavbar() {
         <a href="#/support" class="mobile-nav-link" id="mob-nav-support"><i data-lucide="help-circle" style="width: 18px; height: 18px;"></i> Help & Support</a>
         <a href="#/generators" class="mobile-nav-link" id="mob-nav-generators"><i data-lucide="file-text" style="width: 18px; height: 18px;"></i> File Tools</a>
         <a href="#/reset-password" class="mobile-nav-link" id="mob-nav-reset-password"><i data-lucide="key-round" style="width: 18px; height: 18px;"></i> Reset Password</a>
+        <a href="https://github.com/ankitgl200/studyhubStudents" target="_blank" rel="noopener noreferrer" class="mobile-nav-link" id="mob-nav-contribute"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px; color: var(--primary);"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg> Contribute</a>
         <a href="#/terms" class="mobile-nav-link" id="mob-nav-terms"><i data-lucide="file-text" style="width: 18px; height: 18px;"></i> Terms of Service</a>
         <a href="#/privacy" class="mobile-nav-link" id="mob-nav-privacy"><i data-lucide="shield" style="width: 18px; height: 18px;"></i> Privacy Policy</a>
 
@@ -4588,7 +4617,8 @@ function formatDateStr(dateStr) {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-function downloadFrontPagePDF() {
+async function downloadFrontPagePDF() {
+  await ensureJsPDFLoaded();
   const { jsPDF } = window.jspdf;
   const college = document.getElementById('fp-college-name').value.toUpperCase();
   const dept = document.getElementById('fp-department').value.toUpperCase();
@@ -4827,7 +4857,8 @@ function downloadFrontPagePDF() {
   doc.save(outName.replace(/\s+/g, "_") + "_FrontPage.pdf");
 }
 
-function downloadIndexPDF() {
+async function downloadIndexPDF() {
+  await ensureJsPDFLoaded();
   const { jsPDF } = window.jspdf;
   const template = document.getElementById('idx-template').value;
 
@@ -5704,6 +5735,7 @@ function initEventHandlers() {
 
         uploadBtnSubmit.textContent = 'Compiling PDF...';
 
+        await ensureJsPDFLoaded();
         const { jsPDF } = window.jspdf;
 
         const first = scanImages[0];
