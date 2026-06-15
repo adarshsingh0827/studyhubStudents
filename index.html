@@ -14,7 +14,16 @@
 
     gtag('config', 'G-MLBCW8QCG1');
   </script>
-  <link rel="stylesheet" href="/style.css?v=1.0.3">
+    <link id="theme-stylesheet" rel="stylesheet" href="modern.css?v=1.0.5">
+  <script>
+    (function() {
+      var savedTheme = localStorage.getItem('studyhub-ui-theme') || 'modern';
+      var themeLink = document.getElementById('theme-stylesheet');
+      if (themeLink) {
+        themeLink.setAttribute('href', savedTheme === 'modern' ? 'modern.css?v=1.0.5' : 'old.css?v=1.0.5');
+      }
+    })();
+  </script>
   <!-- Detect App Environment (Median/PWA) to Hide Download App Buttons -->
   <script>
     (function() {
@@ -28,15 +37,49 @@
   </script>
   <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    window.lucide = window.lucide || { createIcons: function () {} };
+  </script>
 </head>
 <style>
-  .logo-image{
+  .logoimg img{
     width: 50px;
     height: 50px;
-    border-radius: 50%;
   }
 </style>
+
 <body>
+  <!-- Theme Transition Overlay -->
+  <div id="theme-transition-overlay" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(243, 248, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 99999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  ">
+    <div style="text-align: center; font-family: sans-serif; color: #1c3d5a;">
+      <div class="theme-spinner" style="
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(30, 86, 160, 0.1);
+        border-top: 4px solid #2563eb;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 16px;
+      "></div>
+      <div style="font-weight: 600; font-size: 16px; letter-spacing: 0.5px;">Switching UI Mode...</div>
+    </div>
+  </div>
   <div class="app-container">
     <!-- Navbar -->
     <header class="navbar">
@@ -89,6 +132,24 @@
       </div>
     </header>
 
+    <!-- UI Theme Switcher Bar -->
+    <div class="ui-switcher-bar">
+      <div class="ui-switcher-content">
+        <div class="ui-switcher-status">
+          <i data-lucide="sparkles" class="ui-switcher-icon"></i>
+          <span>Experience Study Hub:</span>
+        </div>
+        <div class="ui-toggle-control">
+          <span class="ui-toggle-label old-label">Classic UI</span>
+          <label class="ui-toggle-switch">
+            <input type="checkbox" id="ui-theme-toggle" checked>
+            <span class="ui-toggle-slider"></span>
+          </label>
+          <span class="ui-toggle-label modern-label">Modern UI</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Mobile Navigation Drawer Overlay -->
     <div id="mobile-nav-overlay" class="mobile-nav-overlay"></div>
 
@@ -130,6 +191,20 @@
               <div class="hero-actions">
                 <a href="#/notes" class="btn btn-primary">Browse Notes</a>
                 <a href="#/papers" class="btn btn-secondary">Previous Year Papers</a>
+              </div>
+            </div>
+
+            <div class="hero-model" aria-hidden="true">
+              <div class="model-stage">
+                <div class="model-glow"></div>
+                <div class="model-ring ring-one"></div>
+                <div class="model-ring ring-two"></div>
+                <div class="book-3d">
+                  <div class="book-pages"></div>
+                  <div class="book-spine"></div>
+                  <div class="book-cover"></div>
+                </div>
+                <div class="model-shadow"></div>
               </div>
             </div>
 
@@ -785,12 +860,12 @@
             <!-- Chat Header -->
             <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background: var(--primary-accent);">
               <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="background-color: var(--primary); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; box-shadow: 0 0 10px rgba(37, 99, 235, 0.3);">
+                <div style="background-color: var(--primary); color: #eff6ff; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; box-shadow: 0 0 10px #2563eb55;">
                   ⚡
                 </div>
                 <div>
                   <h2 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 6px;">
-                    SONIC <span style="font-size: 10px; background: var(--primary); color: white; padding: 2px 6px; border-radius: 10px; font-weight: 600; text-transform: uppercase;">Study Bot</span>
+                    SONIC <span style="font-size: 10px; background: var(--primary); color: #eff6ff; padding: 2px 6px; border-radius: 10px; font-weight: 600; text-transform: uppercase;">Study Bot</span>
                   </h2>
                   <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Your academic helper & problem solver</p>
                 </div>
@@ -1027,6 +1102,15 @@
 
         </div>
       </div>
+
+      <!-- Shared ad placement: replace this placeholder with ad network code later. -->
+      <aside class="site-ad-space" id="site-ad-space" aria-label="Advertisement">
+        <div class="site-ad-placeholder">
+          <i data-lucide="rectangle-horizontal"></i>
+          <strong>Advertisement Space</strong>
+          <span>Reserved for future ads</span>
+        </div>
+      </aside>
 
     </main>
 
@@ -1314,7 +1398,7 @@
           <textarea id="send-message-body" class="form-input" style="min-height: 120px; resize: vertical;" placeholder="e.g. Please upload the Engineering Physics Lab Manual Unit 2 PDF." required></textarea>
           
           <!-- Template selector section -->
-          <div style="margin-top: 10px; padding: 10px; background-color: #f8fafc; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <div style="margin-top: 10px; padding: 10px; background-color: #eff6ff; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
             <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Quick Templates:</span>
             <div id="quick-templates-container" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;">
               <!-- Dynamic templates loaded here -->
